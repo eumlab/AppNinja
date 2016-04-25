@@ -12,8 +12,10 @@ class ViewController: NSViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        
         // Do any additional setup after loading the view.
+        self.txtInvoiceNr.stringValue = String(NSUserDefaults.standardUserDefaults().integerForKey("InvoiceNr"))
+
     }
     
     override var representedObject: AnyObject? {
@@ -24,41 +26,59 @@ class ViewController: NSViewController {
     var salesItems = [Dictionary<String, AnyObject>]()
     var keys = [String]()
    
-    @IBAction func importCSV(sender: AnyObject)
-    {
+    @IBOutlet weak var txtInvoiceNr: NSTextField!
+    
+    @IBOutlet var txtOutput: NSTextView!
+    
+    @IBAction func importFromApple(sender: AnyObject) {
+        self.importCSV("Apple")
+    }
+    
+    
+    @IBAction func importFromGoogle(sender: AnyObject) {
+        self.importCSV("Google")
+    }
+    
+    func importCSV(sender: String){
         let panel = NSOpenPanel()
         
         if (panel.runModal()==NSFileHandlingPanelOKButton){
             let fileURL = panel.URL!
-            let file = String(contentsOfURL: fileURL, encoding: NSUTF8StringEncoding, error: nil)
-            var lines:Array = file!.componentsSeparatedByString("\n") as [String]
-            var error: NSErrorPointer = nil
+            let file = try? String(contentsOfURL: fileURL, encoding: NSUTF8StringEncoding)
+            let lines:Array = file!.componentsSeparatedByString("\n") as [String]
+            //var error: NSErrorPointer = nil
             
             self.salesItems.removeAll(keepCapacity: true)
             self.keys.removeAll(keepCapacity: true);
-            for (index, value) in enumerate(lines)
+            
+            let startIndex: Int = (sender == "Google") ? 0 : 2
+            
+            for (index, value) in lines.enumerate()
             {
                 
-                if index == 0
+                if index == startIndex
                 {
                     self.keys = value.componentsSeparatedByString(",") as [String]
-                }else if !value.isEmpty
+                }else if !value.isEmpty && index > startIndex
                 {
                     let properties = value.componentsSeparatedByString(",")
                     if properties.count>1
                     {
+                        if properties[0].characters.count == 0 && sender == "Apple"{
+                            break;
+                        }
                         var itemDic = [String:AnyObject]()
                         var i = 0;
                         var j = 0;
                         while i + j < properties.count
                         {
-                            var p = properties[i+j]
+                            let p = properties[i+j]
                             if p.hasPrefix("\"")
                             {
                                 var newp = p
                                 while !newp.hasSuffix("\"")
                                 {
-                                    j++
+                                    j += 1
                                     newp += properties[i+j]
                                 }
                                 let keyName = self.keys[i] as String
@@ -68,20 +88,77 @@ class ViewController: NSViewController {
                                 let keyName = self.keys[i] as String
                                 itemDic[keyName] = p
                             }
-                            i++
+                            i += 1
                         }
                         self.salesItems += [itemDic];
+                    }else{
+                        print("property count <= 1")
                     }
                 }
+                else{
+                    print("value is empty?")
+                }
             }
-            self.calculateRevenue()
-            self.calculateRevenueByCountry()
             
+            if sender == "Google" {
+                self.calculateGoogleRevenue()
+                self.calculateGoogleRevenueByCountry()
+            }else{
+                self.calculateAppleRevenue()
+            }
         }
     }
     
+    func calculateAppleRevenue(){
+        var dicRevenue: [String: Float] = ["Apple Inc" : 0.0,
+                                           "Apple Canada" : 0.0,
+                                           "Apple Pty" : 0.0,
+                                           "iTunes KK" : 0.0,
+                                           "iTunes Sarl" : 0.0]
+        for item in self.salesItems{
+            let country = item["Region (Currency)"] as! NSString
+            let subsidary = self.getAppleSubsidaryByCountry(country)
+            if item["Proceeds"] != nil
+            {
+                var value = dicRevenue[subsidary]
+                let newVal: NSString = item["Proceeds"] as! NSString
+                let netVal = newVal.stringByReplacingOccurrencesOfString("\"", withString: "")
+                value = value! + Float(netVal)!
+                dicRevenue[subsidary] = value
+            }
+        }
+        var totalAmount :Float = 0.0
+        var invoiceNumber = self.txtInvoiceNr.integerValue;
+        for (subsidary, revenue) in dicRevenue{
+            totalAmount = totalAmount + revenue
+            let str = String(format: "Invoice Nr: %d,  %@: %.2f", invoiceNumber, subsidary, revenue)
+            self.output(str)
+            
+            invoiceNumber += 1
+        }
+        let amount = String(format:"%.2f", totalAmount)
+        self.output("Total revenue from Apple: EUR \(amount)")
+        self.txtInvoiceNr.stringValue = String(invoiceNumber);
+        NSUserDefaults .standardUserDefaults().setInteger(invoiceNumber, forKey: "InvoiceNr")
+    }
+    
+    func getAppleSubsidaryByCountry(country: NSString)->String
+    {
+        switch country {
+        case "Mexico (MXN)", "Americas (USD)":
+            return "Apple Inc"
+        case "Canada (CAD)":
+            return "Apple Canada"
+        case "Japan (JPY)":
+            return "iTunes KK"
+        case "Australia (AUD)", "New Zealand (NZD)":
+            return "Apple Pty"
+        default:
+            return "iTunes Sarl"
+        }
+    }
 
-    func calculateRevenue()
+    func calculateGoogleRevenue()
     {
         var revenue :Float = 0.0
         for item in self.salesItems
@@ -94,14 +171,26 @@ class ViewController: NSViewController {
         //println("Total revenue \(revenue) euro")
     }
     
-    func calculateRevenueByCountry()
+    func calculateGoogleRevenueByCountry()
     {
         
         var salesByCountry = [String:Dictionary<String,AnyObject>]()
         for item in self.salesItems
         {
-            let countryCode :String = item["Buyer Country"] as! String
-            var country = salesByCountry[countryCode] ?? [String:AnyObject]()
+            var countryCode :String? = item["Buyer Country"] as? String
+            if countryCode == nil || countryCode?.characters.count == 0 {
+                let type = item["Tax Type"] as? String
+                let buyerCurrency = item["Buyer Currency"] as? String
+                if (type == "Brazil CIDE Withholding Tax" || type == "Brazil IRRF Withholding Tax" || buyerCurrency == "BRL")
+                {
+                    countryCode = "BR"
+                }else
+                {
+                    self.output("Undefined country code!!!")
+                    continue;
+                }
+            }
+            var country = salesByCountry[countryCode!] ?? [String:AnyObject]()
             //itemsInCountry.append(item)
             //salesByCountry[countryCode] = itemsInCountry
             if(country.isEmpty)
@@ -112,20 +201,29 @@ class ViewController: NSViewController {
             }
             
             
-            let type :String = item["Transaction Type"] as! String
+            var type :String = item["Transaction Type"] as! String
+            if type == "Charge refund" {
+                type = "Charge"
+            }else if type == "Google fee refund"
+            {
+                type = "Google fee"
+            }else if type == "Tax refund"
+            {
+                type = "Tax"
+            }
             var fee:Float! = country[type] as! Float
             let newFee = item["Amount (Merchant Currency)"]!.floatValue
             fee = fee + newFee
             country[type] = fee
-            salesByCountry[countryCode] = country;
+            salesByCountry[countryCode!] = country;
             if (countryCode == "")
             {
-                println("wrong country")
+                self.output("wrong country")
             }
         }
+
         
-        
-        println("Country,Charge,Tax,Google fee,Total received")
+        self.output("Country,Charge,Tax,Google fee,Total received")
         var tfee:Float = 0.0, ttax:Float = 0.0, tcharge:Float = 0.0
         
         var gfee:Float = 0.0, gtax:Float = 0.0, gcharge:Float = 0.0
@@ -146,9 +244,9 @@ class ViewController: NSViewController {
             }
             let countryFullName = self.convertCountryName(countryName)
             let received = charge+tax+fee
-            println("\(countryFullName),\(charge),\(tax),\(fee),\(received)")
+            let outputString = String(format: "%@,%.2f,%.2f,%.2f,%.2f", countryFullName, charge, tax, fee, received)
+            self.output(outputString)
         }
-        
         
         //统计欧盟整体的
         var europeanSales:[String:Float] = ["Google fee": 0.0, "Tax": 0.0, "Charge": 0.0]
@@ -174,15 +272,15 @@ class ViewController: NSViewController {
         let efee = europeanSales["Google fee"]!
         let etax = europeanSales["Tax"]!
         let echarge = europeanSales["Charge"]!
-        println("Total:,\(tcharge),\(ttax),\(tfee),\(tcharge + tfee + ttax)")
-        println("In which:,,,,")
-        println("Germany,\(gcharge),\(gtax),\(gfee),\(gcharge+gtax+gfee)");
-        println("European countries(excl. Germany),\(echarge),\(etax),\(efee),\(echarge+etax+efee)");
-        println("Rest of world,\(tcharge-echarge-gcharge),\(ttax-etax-gtax),\(tfee-gfee-efee),\(tcharge-echarge-gcharge+ttax-etax-gtax+tfee-gfee-efee)")
-        
-
-        
-        
+        let total = String(format: "Total:,%.2f,%.2f,%.2f,%.2f", tcharge, ttax, tfee, tcharge+tfee+ttax)
+        self.output(total)
+        self.output("In which:,,,,")
+        let germany = String(format: "Germany,%.2f,%.2f,%.2f,%.2f",gcharge,gtax,gfee,gcharge+gtax+gfee)
+        self.output(germany);
+        let european = String(format: "European countries(excl. Germany),%.2f,%.2f,%.2f,%.2f",echarge,etax,efee,echarge+etax+efee)
+        self.output(european);
+        let rest = String(format: "Rest of world,%.2f,%.2f,%.2f,%.2f",tcharge-echarge-gcharge,ttax-etax-gtax,tfee-gfee-efee,tcharge-echarge-gcharge+ttax-etax-gtax+tfee-gfee-efee)
+        self.output(rest)
     }
     
     func isEuropeanCountry(countryCode:String) ->Bool
@@ -215,7 +313,7 @@ class ViewController: NSViewController {
             "ES",
             "SE",
             "GB"]
-        if contains(europeanCountries, countryCode)
+        if europeanCountries.contains(countryCode)
         {
             return true
         }
@@ -454,7 +552,7 @@ class ViewController: NSViewController {
             "TT":"Trinidad and Tobago",
             "TV":"Tuvalu",
             "TW":"Taiwan (China)",
-            "TZ":"Tanzania, United Republic of",
+            "TZ":"Tanzania",
             "UA":"Ukraine",
             "UG":"Uganda",
             "UM":"United States Minor Outlying Islands",
@@ -477,15 +575,21 @@ class ViewController: NSViewController {
             "ZW":"Zimbabwe"]
         if  (countryNameDic[countryName] == nil)
         {
-            println("country name not found: \(countryName)")
+            self.output("country name not found: \(countryName)")
             return countryName
         }
+        
+        
         
         return countryNameDic[countryName]!
         
         
     }
-    
+    func output(text: String){
+        var txt:String = self.txtOutput.string!
+        txt = txt.stringByAppendingString("\n\(text)")
+        self.txtOutput.string = txt;
+    }
 
 }
 
