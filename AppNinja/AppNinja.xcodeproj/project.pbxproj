@@ -190,9 +190,13 @@
 				TargetAttributes = {
 					A0250B861AFF46D900395A36 = {
 						CreatedOnToolsVersion = 6.3.1;
+						DevelopmentTeam = LKY3A48S4Y;
+						LastSwiftMigration = 0800;
+						ProvisioningStyle = Automatic;
 					};
 					A0250B981AFF46DA00395A36 = {
 						CreatedOnToolsVersion = 6.3.1;
+						LastSwiftMigration = 0800;
 						TestTargetID = A0250B861AFF46D900395A36;
 					};
 				};
@@ -409,10 +413,13 @@
 			baseConfigurationReference = EDF12DBB1287C814502E4564 /* Pods.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "Mac Developer";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = LKY3A48S4Y;
 				INFOPLIST_FILE = AppNinja/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 3.0;
 			};
 			name = Debug;
 		};
@@ -421,10 +428,13 @@
 			baseConfigurationReference = 686B0F651D832DC88A457EC9 /* Pods.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "Mac Developer";
 				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = LKY3A48S4Y;
 				INFOPLIST_FILE = AppNinja/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 3.0;
 			};
 			name = Release;
 		};
@@ -444,6 +454,7 @@
 				INFOPLIST_FILE = AppNinjaTests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 3.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AppNinja.app/Contents/MacOS/AppNinja";
 			};
 			name = Debug;
@@ -460,6 +471,7 @@
 				INFOPLIST_FILE = AppNinjaTests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 3.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AppNinja.app/Contents/MacOS/AppNinja";
 			};
 			name = Release;

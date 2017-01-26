@@ -14,15 +14,11 @@ class ViewController: NSViewController {
         super.viewDidLoad()
         
         // Do any additional setup after loading the view.
-        self.txtInvoiceNr.stringValue = String(NSUserDefaults.standardUserDefaults().integerForKey("InvoiceNr"))
+        self.txtInvoiceNr.stringValue = String(UserDefaults.standard.integer(forKey: "InvoiceNr"))
 
     }
     
-    override var representedObject: AnyObject? {
-        didSet {
-        // Update the view, if already loaded.
-        }
-    }
+    
     var salesItems = [Dictionary<String, AnyObject>]()
     var keys = [String]()
    
@@ -30,38 +26,38 @@ class ViewController: NSViewController {
     
     @IBOutlet var txtOutput: NSTextView!
     
-    @IBAction func importFromApple(sender: AnyObject) {
+    @IBAction func importFromApple(_ sender: AnyObject) {
         self.importCSV("Apple")
     }
     
     
-    @IBAction func importFromGoogle(sender: AnyObject) {
+    @IBAction func importFromGoogle(_ sender: AnyObject) {
         self.importCSV("Google")
     }
     
-    func importCSV(sender: String){
+    func importCSV(_ sender: String){
         let panel = NSOpenPanel()
         
         if (panel.runModal()==NSFileHandlingPanelOKButton){
-            let fileURL = panel.URL!
-            let file = try? String(contentsOfURL: fileURL, encoding: NSUTF8StringEncoding)
-            let lines:Array = file!.componentsSeparatedByString("\n") as [String]
+            let fileURL = panel.url!
+            let file = try? String(contentsOf: fileURL, encoding: String.Encoding.utf8)
+            let lines:Array = file!.components(separatedBy: "\n") as [String]
             //var error: NSErrorPointer = nil
             
-            self.salesItems.removeAll(keepCapacity: true)
-            self.keys.removeAll(keepCapacity: true);
+            self.salesItems.removeAll(keepingCapacity: true)
+            self.keys.removeAll(keepingCapacity: true);
             
             let startIndex: Int = (sender == "Google") ? 0 : 2
             
-            for (index, value) in lines.enumerate()
+            for (index, value) in lines.enumerated()
             {
                 
                 if index == startIndex
                 {
-                    self.keys = value.componentsSeparatedByString(",") as [String]
+                    self.keys = value.components(separatedBy: ",") as [String]
                 }else if !value.isEmpty && index > startIndex
                 {
-                    let properties = value.componentsSeparatedByString(",")
+                    let properties = value.components(separatedBy: ",")
                     if properties.count>1
                     {
                         if properties[0].characters.count == 0 && sender == "Apple"{
@@ -82,11 +78,11 @@ class ViewController: NSViewController {
                                     newp += properties[i+j]
                                 }
                                 let keyName = self.keys[i] as String
-                                itemDic[keyName] = newp
+                                itemDic[keyName] = newp as AnyObject?
                             }else
                             {
                                 let keyName = self.keys[i] as String
-                                itemDic[keyName] = p
+                                itemDic[keyName] = p as AnyObject?
                             }
                             i += 1
                         }
@@ -122,7 +118,7 @@ class ViewController: NSViewController {
             {
                 var value = dicRevenue[subsidary]
                 let newVal: NSString = item["Proceeds"] as! NSString
-                let netVal = newVal.stringByReplacingOccurrencesOfString("\"", withString: "")
+                let netVal = newVal.replacingOccurrences(of: "\"", with: "")
                 value = value! + Float(netVal)!
                 dicRevenue[subsidary] = value
             }
@@ -139,10 +135,10 @@ class ViewController: NSViewController {
         let amount = String(format:"%.2f", totalAmount)
         self.output("Total revenue from Apple: EUR \(amount)")
         self.txtInvoiceNr.stringValue = String(invoiceNumber);
-        NSUserDefaults .standardUserDefaults().setInteger(invoiceNumber, forKey: "InvoiceNr")
+        UserDefaults.standard.set(invoiceNumber, forKey: "InvoiceNr")
     }
     
-    func getAppleSubsidaryByCountry(country: NSString)->String
+    func getAppleSubsidaryByCountry(_ country: NSString)->String
     {
         switch country {
         case "Mexico (MXN)", "Americas (USD)":
@@ -195,9 +191,9 @@ class ViewController: NSViewController {
             //salesByCountry[countryCode] = itemsInCountry
             if(country.isEmpty)
             {
-                country["Google fee"] = 0.0
-                country["Charge"] = 0.0
-                country["Tax"] = 0.0
+                country["Google fee"] = 0.0 as AnyObject?
+                country["Charge"] = 0.0 as AnyObject?
+                country["Tax"] = 0.0 as AnyObject?
             }
             
             
@@ -213,8 +209,8 @@ class ViewController: NSViewController {
             }
             var fee:Float! = country[type] as! Float
             let newFee = item["Amount (Merchant Currency)"]!.floatValue
-            fee = fee + newFee
-            country[type] = fee
+            fee = fee + newFee!
+            country[type] = fee as AnyObject?
             salesByCountry[countryCode!] = country;
             if (countryCode == "")
             {
@@ -229,21 +225,21 @@ class ViewController: NSViewController {
         var gfee:Float = 0.0, gtax:Float = 0.0, gcharge:Float = 0.0
         for(countryName, fees) in salesByCountry
         {
-            let fee = fees["Google fee"]!.floatValue
-            let tax = fees["Tax"]!.floatValue
-            let charge = fees["Charge"]!.floatValue
-            tfee = tfee + fee
-            ttax = ttax + tax
-            tcharge = tcharge + charge;
+            let fee: Float! = fees["Google fee"]!.floatValue
+            let tax: Float! = fees["Tax"]!.floatValue
+            let charge: Float! = fees["Charge"]!.floatValue
+            tfee = tfee + fee!
+            ttax = ttax + tax!
+            tcharge = tcharge + charge!;
             
             if countryName == "DE"
             {
-                gfee = fee
-                gcharge = charge
-                gtax = tax
+                gfee = fee!
+                gcharge = charge!
+                gtax = tax!
             }
             let countryFullName = self.convertCountryName(countryName)
-            let received = charge+tax+fee
+            let received = Float(charge) + Float(tax) + Float(fee)
             let outputString = String(format: "%@,%.2f,%.2f,%.2f,%.2f", countryFullName, charge, tax, fee, received)
             self.output(outputString)
         }
@@ -261,9 +257,9 @@ class ViewController: NSViewController {
                 var eufee = europeanSales["Google fee"]!
                 var eutax = europeanSales["Tax"]!
                 var eucharge = europeanSales["Charge"]!
-                eufee += fee
-                eucharge += charge
-                eutax += tax
+                eufee += fee!
+                eucharge += charge!
+                eutax += tax!
                 europeanSales["Google fee"] = eufee
                 europeanSales["Tax"] = eutax
                 europeanSales["Charge"] = eucharge
@@ -283,7 +279,7 @@ class ViewController: NSViewController {
         self.output(rest)
     }
     
-    func isEuropeanCountry(countryCode:String) ->Bool
+    func isEuropeanCountry(_ countryCode:String) ->Bool
     {
         
         let europeanCountries = ["AT",
@@ -321,7 +317,7 @@ class ViewController: NSViewController {
 
     }
     
-    func convertCountryName(countryName:String) ->String
+    func convertCountryName(_ countryName:String) ->String
     {
         let countryNameDic = ["AD":"Andorra",
             "AE":"United Arab Emirates",
@@ -585,9 +581,9 @@ class ViewController: NSViewController {
         
         
     }
-    func output(text: String){
+    func output(_ text: String){
         var txt:String = self.txtOutput.string!
-        txt = txt.stringByAppendingString("\n\(text)")
+        txt = txt + "\n\(text)"
         self.txtOutput.string = txt;
     }
 
